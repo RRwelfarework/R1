@@ -19,13 +19,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
 app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
 app.use('/', express.static(path.join(__dirname, '..', 'public')));
 
 let gfsBucket;
 let mongoClient;
-
 
 const pdfSchema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -69,7 +67,6 @@ function authAdmin(req, res, next) {
   }
 }
 
-
 app.post('/api/admin/login', (req, res) => {
   const { email, password } = req.body;
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
@@ -78,7 +75,6 @@ app.post('/api/admin/login', (req, res) => {
   }
   return res.status(401).json({ error: 'Invalid credentials' });
 });
-
 
 app.post('/api/admin/upload', authAdmin, upload.single('pdf'), async (req, res) => {
   try {
@@ -147,6 +143,7 @@ app.patch('/api/admin/:id/archive', authAdmin, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 app.patch('/api/admin/:id/unarchive', authAdmin, async (req, res) => {
   try {
     const pdf = await Pdf.findByIdAndUpdate(req.params.id, { archived: false }, { new: true });
@@ -158,15 +155,15 @@ app.patch('/api/admin/:id/unarchive', authAdmin, async (req, res) => {
   }
 });
 
+// ✅ Updated: Removed auto-archive after 30 days
 app.get('/api/public/list', async (req, res) => {
-  const now = Date.now();
-  const items = await Pdf.find({}).sort({ createdAt: -1 }).lean();
-  const result = items.map(pdf => {
-    const ageDays = (now - new Date(pdf.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-    if (ageDays > 30) pdf.archived = true;
-    return pdf;
-  });
-  res.json(result);
+  try {
+    const items = await Pdf.find({}).sort({ createdAt: -1 }).lean();
+    res.json(items);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 app.get('/api/public/view/:id', async (req, res) => {
